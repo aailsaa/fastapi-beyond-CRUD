@@ -1,76 +1,40 @@
-services:
-  web:
-    build: .
-    volumes:
-      - .:/app
-    environment: 
-      DATABASE_URL: ${DATABASE_URL}
-      JWT_SECRET: ${JWT_SECRET}
-      JWT_ALGORITHM: ${JWT_ALGORITHM}
-      MAIL_USERNAME: ${MAIL_USERNAME}
-      MAIL_PASSWORD: ${MAIL_PASSWORD}
-      MAIL_SERVER: ${MAIL_SERVER}
-      MAIL_PORT: ${MAIL_PORT}
-      MAIL_FROM: ${MAIL_FROM}
-      MAIL_FROM_NAME: ${MAIL_FROM_NAME}
-      DOMAIN: ${DOMAIN}
-      REDIS_URL: ${REDIS_URL}
+name: Conventional Commit Check
 
-    ports:
-      - "8000:8000"
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
 
-    depends_on:
-      - db
-      - redis
+jobs:
+  check-commit:
+    runs-on: ubuntu-latest
 
-    networks:
-      - app-network
+    steps:
+      - name: Check PR Title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  db:
-    image: postgres:15
+      - name: Close PR if failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              state: "closed"
+            })
 
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
-    ports:
-     - "5432:5432"
-
-    volumes:
-      - db-data:/var/lib/postgresql/data
-
-    networks:
-      - app-network
-  redis:
-    image: redis:6
-
-    ports:
-     - "6379:6379"
-
-    networks:
-     - app-network
-
-  celery:
-    build: .
-
-    command: celery -A src.celery_tasks.c_app worker --loglevel=INFO
-
-    volumes:
-      - .:/app
-
-    depends_on:
-      - redis
-
-    environment:
-      REDIS_URL: ${REDIS_URL}
-
-    networks:
-      - app-network
-
-volumes:
-  db-data:
-
-networks:
-  app-network:
-    driver: bridge
+      - name: Send email notification
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.sendgrid.net
+          server_port: 587
+          username: apikey
+          password: ${{ secrets.SENDGRID_API_KEY }}
+          subject: "PR Failed Conventional Commit Check"
+          to: ${{ secrets.SENDGRID_TO_EMAIL }}
+          from: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          body: "A pull request was closed because it did not follow Conventional Commit format."
