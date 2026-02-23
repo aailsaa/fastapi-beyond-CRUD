@@ -2,7 +2,7 @@ name: Conventional Commit Check
 
 on:
   pull_request:
-    types: [opened, edited]
+    types: [opened, edited, synchronize]
 
 jobs:
   check-commit:
@@ -23,7 +23,8 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               pull_number: context.payload.pull_request.number,
-              state: "closed" })
+              state: "closed"
+            })
 
       - name: Send email notification
         if: failure()
@@ -37,8 +38,3 @@ jobs:
           to: ${{ secrets.SENDGRID_TO_EMAIL }}
           from: ${{ secrets.SENDGRID_FROM_EMAIL }}
           body: "A pull request was closed because it did not follow Conventional Commit format."
-
-
-
-
-            })
