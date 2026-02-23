@@ -4,6 +4,10 @@ from sqlmodel import SQLModel
 
 from src.config import Config
 
+from fastapi import FastAPI
+
+app = FastAPI()
+
 async_engine = create_async_engine(
     url=Config.DATABASE_URL,
     echo=True

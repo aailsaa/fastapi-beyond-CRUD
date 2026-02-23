@@ -1,0 +1,44 @@
+name: Conventional Commit Check
+
+on:
+  pull_request:
+    types: [opened, edited]
+
+jobs:
+  check-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check PR Title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Close PR if failed
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.pulls.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+              state: "closed"
+
+      - name: Send email notification
+        if: failure()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.sendgrid.net
+          server_port: 587
+          username: apikey
+          password: ${{ secrets.SENDGRID_API_KEY }}
+          subject: "PR Failed Conventional Commit Check"
+          to: ${{ secrets.SENDGRID_TO_EMAIL }}
+          from: ${{ secrets.SENDGRID_FROM_EMAIL }}
+          body: "A pull request was closed because it did not follow Conventional Commit format."
+
+
+
+
+            })
