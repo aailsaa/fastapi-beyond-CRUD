@@ -34,15 +34,21 @@ jobs:
           tags: yourdockerhubusername/fastapi-beyond-crud:nightly
 
 
-      - name: Send failure email
+      # SendGrid: SENDGRID_FROM_EMAIL must be the EXACT verified address (e.g. noreply@yourdomain.com).
+      # Use only the email, no "Name <email>" unless that identity is verified. No leading/trailing spaces.
+      - name: Email on failure
         if: failure()
-        uses: dawidd6/action-send-mail@v3
-        with:
-          server_address: smtp.sendgrid.net
-          server_port: 587
-          username: apikey
-          password: ${{ secrets.SENDGRID_API_KEY }}
-          subject: "Nightly Build Failed"
-          to: ${{ secrets.SENDGRID_TO_EMAIL }}
-          from: ${{ secrets.SENDGRID_FROM_EMAIL }}
-          body: "Nightly build failed due to test errors."
+        run: |
+          curl -X POST https://api.sendgrid.com/v3/mail/send \
+          -H "Authorization: Bearer $SENDGRID_API_KEY" \
+          -H "Content-Type: application/json" \
+          -d '{
+            "personalizations":[{"to":[{"email":"'"$ALERT_EMAIL_TO"'"}]}],
+            "from":{"email":"'"$ALERT_EMAIL_FROM"'"},
+            "subject":"PR Closed - Bad Commit Message",
+            "content":[{"type":"text/plain","value":"Your PR was closed because it did not follow Conventional Commit format."}]
+          }'
+        env:
+          SENDGRID_API_KEY: ${{ secrets.SENDGRID_API_KEY }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
